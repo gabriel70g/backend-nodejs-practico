@@ -1,49 +1,66 @@
-const { nanoid } = require('nanoid');
+const nanoid = require('nanoid');
 const auth = require('../auth');
+
 const TABLA = 'user';
 
-
-module.exports = function(injectedStore)  {
-  let store = injectedStore;
-
-  if (!store){
-    store = require('../../../store/dummy');
-  }
- 
-  function list() {
-    return store.list(TABLA);
-  }
-
-   function get(id) {
-    return store.list(TABLA, id);
-  }
-
-  async function upsert(body){
-    const user = {
-      name: body.name,
-      username: body.username,
+module.exports = function (injectedStore) {
+    let store = injectedStore;
+    if (!store) {
+        store = require('../../../store/dummy');
     }
 
-    if (body.id){
-      user.id = body.id;
-    } else {
-      user.id = await nanoid();
+    function list() {
+        return store.list(TABLA);
     }
 
-    if (body.password || body.username){
-      await auth.upsert({
-        id: user.id,
-        username: user.username,
-        password: body.password,
-      })
+    function get(id) {
+        return store.get(TABLA, id);
     }
 
-    return store.upsert(TABLA, user);
-  }
+    async function upsert(body) {
 
-  return {
-  list,
-  get,
-  upsert
-  }
+        const user = {
+            name: body.name,
+            username: body.username,
+        }
+
+        if (body.id) {
+            user.id = body.id;
+        } else {
+            user.id = nanoid.nanoid();
+        }
+
+        if (body.password || body.username) {
+            await auth.upsert({
+                id: user.id,
+                username: user.username,
+                password: body.password,
+            })
+        }
+
+        return store.upsert(TABLA, user);
+    }
+
+    async function follow(from, to) {
+        return store.upsert(TABLA + '_follow', {
+            user_front: from,
+            user_to: to,
+        });
+    }
+
+    async function following(user) {
+        const join = {}
+        join[TABLA] = 'user_to'; // { user: 'user_to' }
+        const query = { user_from: user };
+		
+		return await store.query(TABLA + '_follow', query, join);
+	}
+
+    return {
+        follow,
+        following,
+        list,
+        get,
+        upsert,
+    };
 }
